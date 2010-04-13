@@ -1,0 +1,136 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Места для бега.</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <script src="http://api-maps.yandex.ru/1.1/index.xml?key=ANpUFEkBAAAAf7jmJwMAHGZHrcKNDsbEqEVjEUtCmufxQMwAAAAAAAAAAAAvVrubVT4btztbduoIgTLAeFILaQ==" type="text/javascript"></script>
+    <script type="text/javascript">
+        // Создание обработчика для события window.onLoad
+        YMaps.jQuery(function () {
+            // Создание экземпляра карты и его привязка к созданному контейнеру
+
+            var map = new YMaps.Map(YMaps.jQuery("#YMapsID")[0], {ignoreResize: false});
+
+            YMaps.jQuery("#YMapsID").height(YMaps.jQuery(window).height() - 20);
+            YMaps.jQuery(window).resize(function(){
+                YMaps.jQuery("#YMapsID").height(YMaps.jQuery(window).height() - 20);
+            });
+
+            // Установка для карты ее центра и масштаба
+            map.setCenter(new YMaps.GeoPoint(39.625163,47.222421), 16);
+
+            //Добавление элементов управления
+            var typeControl = new YMaps.TypeControl([YMaps.MapType.MAP, YMaps.MapType.SATELLITE, YMaps.MapType.HYBRID], [0,1,2]);
+            map.addControl(typeControl);
+            map.addControl(new YMaps.ToolBar());
+            map.addControl(new YMaps.Zoom());
+            map.addControl(new YMaps.MiniMap());
+            map.addControl(new YMaps.ScaleLine());
+
+            // Создание стиля
+            var s = new YMaps.Style();
+            s.lineStyle = new YMaps.LineStyle();
+            s.lineStyle.strokeColor = '0000FF55';
+            s.lineStyle.strokeWidth = '5';
+            YMaps.Styles.add("example#CustomLine", s);
+
+            // Создание группы объектов и добавление ее на карту
+            var group = new YMaps.GeoObjectCollection();
+            group.add(createPolyline ("iKBcAieM0AIL3P__v____woAAADRCwAAdCMAAMb____r____F_7__ywBAAD5_v__av___5z3__8=", "AAAAAAA",
+                        {
+                            hasHint: 1,
+                            hasBalloon: 1,
+                            style: "example#CustomLine"
+                        }, 'Областные больницы (~ 2 км)', ''));
+            group.add(createPolyline ("LLlcAvWo0AIBAQAA-f___8EAAACSAAAACgAAAFABAACK____mQAAAPT-__8AAAAAq____2f___8KAAAAJf7__w==", "AAAAAAAA",
+                        {
+                            hasHint: 1,
+                            hasBalloon: 1,
+                            style: "example#CustomLine"
+                        }, 'Стадион школы №?? (~ 190 м)', ''));
+            group.add(createPolyline ("qYtcAmhd0AJLAAAAJf3___YAAAC3____9gAAAG0AAADr____vQIAALX___98AAAAnv7__w4AAACV____Z____w==", "AAAAAAAA",
+                        {
+                            hasHint: 1,
+                            hasBalloon: 1,
+                            style: "example#CustomLine"
+                        }, 'Стадион школы №60 (~ 250 м)', ''));
+            group.add(createPolyline ("1GZeAkLwzwIu7P__KyUAADL2__8yEgAA0PT__08VAADtAQAA0wMAAA==", "AAAAA",
+                        {
+                            hasHint: 1,
+                            hasBalloon: 1,
+                            style: "example#CustomLine"
+                        }, 'Гребной канал (~ 2,5 км)', ''));
+
+
+            map.addOverlay(group);
+
+            map.addControl(new Navigator(group), new YMaps.ControlPosition(YMaps.ControlPosition.TOP_RIGHT, new YMaps.Point(125, 5)));
+
+        });
+
+        // Функия создания ломанной
+        function createPolyline (codedGeoPoints, levels, options, name, description) {
+            var polyline = new YMaps.Polyline.fromEncodedPoints(codedGeoPoints, levels, options);
+            polyline.name = name;
+            polyline.description = description;
+            polyline.bounds = new YMaps.GeoCollectionBounds();
+            for (var i = 0; i<polyline.getNumPoints(); i++) {
+                polyline.bounds.add(polyline.getPoint(i))
+            };
+            return polyline;
+        }
+
+        // Управляющий элемент
+        function Navigator (places) {
+            this.listbox = new YMaps.ListBox({caption: "Места для бега", width: 250});
+            this.toolbar = new YMaps.ToolBar(this.listbox);
+            // Пока "летим" игнорируем клики по ссылкам
+            this.isFlying = 0;
+
+            var _this = this;
+            // Для каждого объекта вызываем функцию-обработчик
+            places.forEach(function (obj) {
+                // Создание ссылки на объект
+                var li = new YMaps.ListBoxItem( obj.name );
+
+                // Создание обработчика щелчка по ссылке
+                YMaps.Events.observe(li, li.Events.Click, function () {
+                    var currentMap = _this.listbox.__toolBar.getMap();
+                    if (!_this.isFlying &&
+                            currentMap.getCenter().__lat.toFixed(7) != obj.bounds.getCenter().__lat.toFixed(7) &&
+                            currentMap.getCenter().__lng.toFixed(7) != obj.bounds.getCenter().__lng.toFixed(7)) { // т.к. расхождение идёт после 7-го знака после зяпятой (хотя неизвестно почему)
+                        _this.isFlying = 1;
+                        currentMap.panTo(obj.bounds.getCenter(), {
+                            flying: 1,
+                            callback: function () {
+                                obj.openBalloon();
+                                _this.isFlying = 0;
+                                currentMap.setBounds(obj.bounds); // для масштабирования
+                                currentMap.setZoom(currentMap.getZoom() - 1);
+                            }
+                        });
+                    };
+                }, _this.listbox);
+
+                _this.listbox.add(li);
+            });
+            return this.toolbar;
+        }
+    </script>
+    <style>
+        #YMapsID {
+            float:left;
+        }
+
+        #info {
+            padding: 5px 5px 5px 5px;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div id="YMapsID" style="width: 100%; height:400px"></div>
+</body>
+
+</html>
